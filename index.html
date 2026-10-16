@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Rubber Duck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Space+Mono:wght@400;700&display=swap">
+<style>
+/* Layout: one phone-sized column. Question bubble, duck floating on water, controls, timer. Cartoon duck: warm yellow, brown outline, soft periwinkle ground. */
+:root {
+  --ground: #E4E8F4;
+  --panel: #EEF2FB;
+  --paper: #FFFFFF;
+  --ink: #4A2C17;
+  --orange: #F7941D;
+  --orange-dark: #D9531A;
+  --shadow: #C3CDEA;
+  --display: 'Bricolage Grotesque', Georgia, 'Times New Roman', serif;
+  --mono: 'Space Mono', 'Courier New', monospace;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink); font-family: var(--display);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 440px; margin: 0 auto; padding-block: 28px 32px; display: flex; flex-direction: column; gap: 22px; box-sizing: border-box; }
+h1 { margin: 0; font-size: clamp(34px, 10vw, 44px); font-weight: 800; line-height: 1.05; }
+.bubble { position: relative; background: var(--paper); border-radius: 22px; padding: 20px 22px; min-height: 92px; box-sizing: border-box; display: flex; align-items: center; font-size: 21px; font-weight: 600; line-height: 1.5; box-shadow: 0 4px 0 var(--shadow); }
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -9px; width: 20px; height: 20px; margin-left: -10px; background: var(--paper); transform: rotate(45deg); border-radius: 4px; }
+.scene { display: block; width: 100%; aspect-ratio: 346 / 330; max-width: 100%; border: 0; padding: 0; border-radius: 28px; overflow: hidden; cursor: pointer; background: var(--panel); }
+.scene svg { display: block; width: 100%; height: 100%; }
+.scene:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
+.dots { display: flex; gap: 8px; justify-content: center; }
+.dot { width: 9px; height: 9px; border-radius: 999px; background: var(--shadow); }
+.dot.on { background: var(--orange); }
+.controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.btn { font-family: var(--display); font-size: 17px; font-weight: 700; min-height: 54px; padding: 0 16px; border: 0; border-radius: 16px; cursor: pointer; }
+.btn.primary { background: var(--orange); color: var(--paper); box-shadow: 0 4px 0 var(--orange-dark); }
+.btn.secondary { background: var(--paper); color: var(--ink); box-shadow: 0 4px 0 var(--shadow); }
+.btn:active { transform: translateY(3px); box-shadow: none; }
+.btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.timer { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: var(--paper); border-radius: 22px; padding: 16px 18px; box-shadow: 0 4px 0 var(--shadow); }
+.label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.clock { font-family: var(--mono); font-size: 32px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.timer .btns { display: flex; gap: 10px; }
+.timer .btn { min-height: 46px; font-size: 15px; padding: 0 18px; }
+.timer .btn.secondary { background: var(--panel); }
+
+.bob { animation: bob 3s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
+@keyframes bob { 0%,100% { transform: translateY(0) rotate(-2.5deg); } 50% { transform: translateY(7px) rotate(2.5deg); } }
+.hop { animation: hop .5s ease-out; transform-box: fill-box; transform-origin: 50% 90%; }
+@keyframes hop { 0% { transform: translateY(0) rotate(0); } 35% { transform: translateY(-22px) rotate(-6deg); } 100% { transform: translateY(0) rotate(0); } }
+.lid { transform-box: fill-box; transform-origin: center; transform: scaleY(0); animation: blink 4.4s infinite; }
+@keyframes blink { 0%,93%,100% { transform: scaleY(0); } 96% { transform: scaleY(1); } }
+.jaw { transform-box: fill-box; transform-origin: 4% 10%; }
+.talk .jaw { animation: talk .16s ease-in-out 8 alternate; }
+@keyframes talk { from { transform: rotate(0); } to { transform: rotate(13deg); } }
+.wave-a { animation: drift 7s linear infinite; }
+.wave-b { animation: drift 4.5s linear infinite reverse; }
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(-120px); } }
+.ring { transform-box: fill-box; transform-origin: center; animation: ring 3s ease-out infinite; }
+.ring2 { animation-delay: 1.5s; }
+@keyframes ring { 0% { transform: scale(.7); opacity: .7; } 100% { transform: scale(1.35); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bob, .hop, .talk .jaw, .wave-a, .wave-b, .ring { animation: none; } .lid { animation: none; } }
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <h1>Talk to the duck.</h1>
+  <div class="bubble" id="bubble" aria-live="polite">Hi. Tell me about your project in one sentence.</div>
+
+  <button class="scene" id="scene" type="button" aria-label="Tap the duck for the next question">
+    <svg viewBox="0 0 346 330" aria-hidden="true">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F3F6FC"/><stop offset="1" stop-color="#E2E8F6"/></linearGradient>
+        <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FB6EC"/><stop offset="1" stop-color="#3D7FD1"/></linearGradient>
+        <linearGradient id="waterFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8CC2F2" stop-opacity=".92"/><stop offset="1" stop-color="#3473C4"/></linearGradient>
+        <radialGradient id="bodyG" cx=".38" cy=".3" r=".8"><stop offset="0" stop-color="#FFF08A"/><stop offset=".45" stop-color="#FFD62A"/><stop offset="1" stop-color="#F2A516"/></radialGradient>
+        <radialGradient id="headG" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#FFF29A"/><stop offset=".5" stop-color="#FFD62A"/><stop offset="1" stop-color="#F3AE1A"/></radialGradient>
+        <linearGradient id="wingG" x1="0" y1="0" x2=".6" y2="1"><stop offset="0" stop-color="#FFE45C"/><stop offset="1" stop-color="#F0A314"/></linearGradient>
+        <linearGradient id="beakTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB24A"/><stop offset="1" stop-color="#F57C1F"/></linearGradient>
+        <linearGradient id="beakLow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F06A1C"/><stop offset="1" stop-color="#D9531A"/></linearGradient>
+      </defs>
+      <rect width="346" height="330" fill="url(#sky)"/>
+      <g class="wave-a"><path d="M0 228 Q30 218 60 228 T120 228 T180 228 T240 228 T300 228 T360 228 T420 228 T480 228 V330 H0 Z" fill="url(#water)"/></g>
+      <ellipse class="ring" cx="173" cy="246" rx="110" ry="14" fill="none" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="2.5"/>
+      <ellipse class="ring ring2" cx="173" cy="246" rx="110" ry="14" fill="none" stroke="#FFFFFF" stroke-opacity=".7" stroke-width="2.5"/>
+      <g class="bob">
+        <g id="duck">
+          <g transform="translate(40 68)">
+            <path d="M66 106 C54 74 26 86 30 120 C26 172 74 202 136 200 C198 200 228 168 220 134 C214 110 190 104 168 110 C138 120 94 120 66 106 Z" fill="url(#bodyG)" stroke="#4A2C17" stroke-width="4.5" stroke-linejoin="round"/>
+            <path d="M40 118 C38 100 46 92 54 96" fill="none" stroke="#FFFBE0" stroke-width="6" stroke-linecap="round" opacity=".8"/>
+            <path d="M70 156 C58 120 98 106 126 128 C146 144 138 178 106 182 C86 184 74 172 70 156 Z" fill="url(#wingG)" stroke="#4A2C17" stroke-width="4.5" stroke-linejoin="round"/>
+            <path d="M80 146 C78 128 98 120 116 132" fill="none" stroke="#FFF6B8" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+            <circle cx="150" cy="70" r="54" fill="url(#headG)" stroke="#4A2C17" stroke-width="4.5"/>
+            <ellipse cx="126" cy="40" rx="17" ry="9" fill="#FFFFFF" opacity=".7" transform="rotate(-30 126 40)"/>
+            <ellipse cx="174" cy="62" rx="7.5" ry="9.5" fill="#3A2210"/>
+            <circle cx="176.5" cy="57.5" r="2.8" fill="#FFFFFF"/>
+            <rect class="lid" x="165" y="51" width="19" height="23" rx="9.5" fill="#FFD62A"/>
+            <ellipse cx="168" cy="92" rx="10" ry="5" fill="#F7A23B" opacity=".45"/>
+            <g id="beak">
+              <path class="jaw" d="M193 98 C208 101 228 101 241 96 C243 109 224 118 206 115 C197 113 191 106 193 98 Z" fill="url(#beakLow)" stroke="#4A2C17" stroke-width="4.5" stroke-linejoin="round"/>
+              <path d="M190 86 C196 70 228 66 244 77 C252 83 250 93 240 96 C226 100 206 101 193 99 C186 97 186 91 190 86 Z" fill="url(#beakTop)" stroke="#4A2C17" stroke-width="4.5" stroke-linejoin="round"/>
+              <path d="M205 78 C214 74 226 74 234 78" fill="none" stroke="#FFD08A" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="229" cy="83" r="1.8" fill="#8A3E12"/>
+            </g>
+          </g>
+        </g>
+      </g>
+      <g class="wave-b">
+        <path d="M0 262 Q24 252 48 262 T96 262 T144 262 T192 262 T240 262 T288 262 T336 262 T384 262 T432 262 T480 262 V330 H0 Z" fill="url(#waterFront)"/>
+        <path d="M0 262 Q24 252 48 262 T96 262 T144 262 T192 262 T240 262 T288 262 T336 262 T384 262 T432 262 T480 262" fill="none" stroke="#DDEEFF" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+      </g>
+      <path d="M40 292 H86 M226 304 H300 M120 316 H160" stroke="#FFFFFF" stroke-opacity=".45" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="dots" id="dots" aria-hidden="true"></div>
+
+  <div class="controls">
+    <button class="btn primary" id="next" type="button">Next question</button>
+    <button class="btn secondary" id="restart" type="button">Start again</button>
+  </div>
+
+  <section class="timer" aria-label="Five minute timer">
+    <div>
+      <div class="label">Talk for</div>
+      <div class="clock" id="clock">5:00</div>
+    </div>
+    <div class="btns">
+      <button class="btn primary" id="go" type="button">Start</button>
+      <button class="btn secondary" id="reset" type="button">Reset</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var questions = [
+    "Hi. Tell me about your project in one sentence.",
+    "Who is it for?",
+    "What have you found out so far?",
+    "Where exactly are you stuck?",
+    "Say that again, but simpler. I’m a duck.",
+    "What’s the smallest thing you could make in the next 10 minutes?",
+    "Great. Go and make it. I’ll wait here."
+  ];
+  var i = 0, t1, t2;
+  var bubble = document.getElementById('bubble');
+  var duck = document.getElementById('duck');
+  var beak = document.getElementById('beak');
+  var dots = document.getElementById('dots');
+  var nextBtn = document.getElementById('next');
+  questions.forEach(function () { var d = document.createElement('span'); d.className = 'dot'; dots.appendChild(d); });
+
+  function show(animate) {
+    bubble.textContent = questions[i];
+    Array.prototype.forEach.call(dots.children, function (d, k) { d.classList.toggle('on', k <= i); });
+    nextBtn.textContent = i === questions.length - 1 ? 'One more round' : 'Next question';
+    if (!animate) return;
+    duck.classList.remove('hop'); beak.classList.remove('talk');
+    void duck.getBoundingClientRect();
+    duck.classList.add('hop'); beak.classList.add('talk');
+    clearTimeout(t1); clearTimeout(t2);
+    t1 = setTimeout(function () { duck.classList.remove('hop'); }, 500);
+    t2 = setTimeout(function () { beak.classList.remove('talk'); }, 1300);
+  }
+  function next() { i = (i + 1) % questions.length; show(true); }
+  document.getElementById('scene').addEventListener('click', next);
+  nextBtn.addEventListener('click', next);
+  document.getElementById('restart').addEventListener('click', function () { i = 0; show(true); });
+  show(false);
+
+  var total = 300, left = total, tick = null;
+  var clock = document.getElementById('clock'), go = document.getElementById('go');
+  function draw() { var m = Math.floor(left / 60), s = left % 60; clock.textContent = m + ':' + (s < 10 ? '0' : '') + s; }
+  function stop() { clearInterval(tick); tick = null; go.textContent = (left > 0 && left < total) ? 'Resume' : 'Start'; }
+  go.addEventListener('click', function () {
+    if (tick) { stop(); return; }
+    if (left === 0) left = total;
+    go.textContent = 'Pause';
+    tick = setInterval(function () {
+      left -= 1; draw();
+      if (left <= 0) { left = 0; stop(); i = questions.length - 1; show(true); }
+    }, 1000);
+  });
+  document.getElementById('reset').addEventListener('click', function () { stop(); left = total; draw(); go.textContent = 'Start'; });
+  draw();
+})();
+</script>
+</body>
+</html>
