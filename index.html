@@ -47,6 +47,11 @@ h1 { margin: 0; font-size: clamp(34px, 10vw, 44px); font-weight: 800; line-heigh
 .timer .btns { display: flex; gap: 10px; }
 .timer .btn { min-height: 46px; font-size: 15px; padding: 0 18px; }
 .timer .btn.secondary { background: var(--panel); }
+.set { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.set label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+.set input { font-family: var(--mono); font-size: 18px; font-weight: 700; width: 64px; min-height: 44px; box-sizing: border-box; padding: 0 8px; border: 2px solid var(--shadow); border-radius: 12px; background: var(--panel); color: var(--ink); text-align: center; }
+.set input:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
 
 .bob { animation: bob 3s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-2.5deg); } 50% { transform: translateY(7px) rotate(2.5deg); } }
@@ -125,10 +130,14 @@ h1 { margin: 0; font-size: clamp(34px, 10vw, 44px); font-weight: 800; line-heigh
     <button class="btn secondary" id="restart" type="button">Start again</button>
   </div>
 
-  <section class="timer" aria-label="Five minute timer">
+  <section class="timer" aria-label="Timer">
     <div>
       <div class="label">Talk for</div>
-      <div class="clock" id="clock">5:00</div>
+      <div class="clock" id="clock" aria-live="polite">5:00</div>
+      <div class="set">
+        <label for="mins">Minutes</label>
+        <input id="mins" type="number" inputmode="numeric" min="5" max="60" step="1" value="5">
+      </div>
     </div>
     <div class="btns">
       <button class="btn primary" id="go" type="button">Start</button>
@@ -136,6 +145,7 @@ h1 { margin: 0; font-size: clamp(34px, 10vw, 44px); font-weight: 800; line-heigh
     </div>
   </section>
 </main>
+<canvas id="confetti" aria-hidden="true"></canvas>
 
 <script>
 (function () {
@@ -174,20 +184,60 @@ h1 { margin: 0; font-size: clamp(34px, 10vw, 44px); font-weight: 800; line-heigh
   document.getElementById('restart').addEventListener('click', function () { i = 0; show(true); });
   show(false);
 
-  var total = 300, left = total, tick = null;
-  var clock = document.getElementById('clock'), go = document.getElementById('go');
+  var MIN = 5, MAX = 60;
+  var total = MIN * 60, left = total, tick = null;
+  var clock = document.getElementById('clock'), go = document.getElementById('go'), mins = document.getElementById('mins');
   function draw() { var m = Math.floor(left / 60), s = left % 60; clock.textContent = m + ':' + (s < 10 ? '0' : '') + s; }
   function stop() { clearInterval(tick); tick = null; go.textContent = (left > 0 && left < total) ? 'Resume' : 'Start'; }
+  function readMinutes() {
+    var v = parseInt(mins.value, 10);
+    if (isNaN(v) || v < MIN) v = MIN;
+    if (v > MAX) v = MAX;
+    mins.value = v;
+    return v;
+  }
+  function setTotal() { stop(); total = readMinutes() * 60; left = total; draw(); go.textContent = 'Start'; }
+  mins.addEventListener('change', setTotal);
+  mins.addEventListener('input', function () { var v = parseInt(mins.value, 10); if (!tick && !isNaN(v) && v >= MIN && v <= MAX) { total = v * 60; left = total; draw(); go.textContent = 'Start'; } });
   go.addEventListener('click', function () {
     if (tick) { stop(); return; }
+    if (left === total) { total = readMinutes() * 60; left = total; }
     if (left === 0) left = total;
+    mins.disabled = true;
     go.textContent = 'Pause';
     tick = setInterval(function () {
       left -= 1; draw();
-      if (left <= 0) { left = 0; stop(); i = questions.length - 1; show(true); }
+      if (left <= 0) { left = 0; stop(); mins.disabled = false; i = questions.length - 1; show(true); confetti(); }
     }, 1000);
   });
-  document.getElementById('reset').addEventListener('click', function () { stop(); left = total; draw(); go.textContent = 'Start'; });
+  document.getElementById('reset').addEventListener('click', function () { mins.disabled = false; setTotal(); });
+
+  // Confetti when the timer ends.
+  var cv = document.getElementById('confetti'), cx = cv.getContext('2d');
+  function confetti() {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var dpr = window.devicePixelRatio || 1, W = window.innerWidth, H = window.innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var colors = ['#F7941D', '#FFD62A', '#3D7FD1', '#7FB6EC', '#D9531A', '#FFFFFF'];
+    var n = reduce ? 40 : 180, parts = [];
+    for (var k = 0; k < n; k++) {
+      parts.push({ x: Math.random() * W, y: -20 - Math.random() * H * 0.5, w: 6 + Math.random() * 6, h: 8 + Math.random() * 8,
+        vx: -1.5 + Math.random() * 3, vy: 1.5 + Math.random() * 2, r: Math.random() * Math.PI, vr: -0.2 + Math.random() * 0.4,
+        c: colors[k % colors.length] });
+    }
+    var start = performance.now(), dur = reduce ? 1500 : 5000;
+    var last = start;
+    (function frame(now) {
+      var t = now - start, dt = Math.min(3, Math.max(0, (now - last) / 16.67)); last = now;
+      cx.clearRect(0, 0, W, H);
+      parts.forEach(function (p) {
+        p.vy += 0.02 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt;
+        cx.save(); cx.globalAlpha = Math.max(0, 1 - t / dur);
+        cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c; cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); cx.restore();
+      });
+      if (t < dur) requestAnimationFrame(frame); else cx.clearRect(0, 0, W, H);
+    })(start);
+  }
   draw();
 })();
 </script>
