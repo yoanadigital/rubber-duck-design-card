@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keep Going</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap">
+<style>
+/* Layout: one screen of dotted notebook paper. A pen line draws a tight ball, the ball loosens into a tangle,
+   the tangle untangles into a flower, then the words write themselves in below. */
+:root {
+  --paper: #F6F4EE;
+  --dot: #CFCBC2;
+  --ink: #1B1B1B;
+  --hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; color: var(--ink); font-family: var(--hand);
+  background-color: var(--paper);
+  background-image: radial-gradient(circle, var(--dot) 1.2px, transparent 1.6px);
+  background-size: 22px 22px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 460px; min-height: 100%; margin: 0 auto; padding-block: 24px; box-sizing: border-box;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; }
+svg { width: 100%; max-height: 62vh; height: auto; display: block; overflow: visible; }
+#pen { fill: none; stroke: var(--ink); stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.msg { margin: 0; text-align: center; line-height: 1.05; }
+.msg span { display: block; clip-path: inset(0 100% 0 0); }
+.msg .l1, .msg .l2 { font-size: clamp(32px, 9vw, 42px); font-weight: 500; }
+.msg .l3 { font-size: clamp(44px, 13vw, 60px); font-weight: 700; margin-top: 10px; }
+.msg.on .l1 { animation: write 1.3s steps(24, end) forwards; }
+.msg.on .l2 { animation: write 1.3s steps(24, end) 1.4s forwards; }
+.msg.on .l3 { animation: write 1.1s steps(16, end) 3s forwards; }
+@keyframes write { to { clip-path: inset(0 -4% 0 0); } }
+@media (prefers-reduced-motion: reduce) { .msg span { clip-path: none; } .msg.on span { animation: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <svg viewBox="0 0 400 420" role="img" aria-label="A tight ball of scribbles grows into a tangle and untangles into a flower">
+    <path id="pen" d=""></path>
+    <path id="stem" d="M200 170 C 190 235, 150 280, 158 335 C 165 385, 235 398, 248 362 C 258 335, 228 322, 248 300 C 268 278, 300 272, 302 232" fill="none" stroke="none"></path>
+  </svg>
+  <p class="msg" id="msg">
+    <span class="l1">Every good thing</span>
+    <span class="l2">started as a mess.</span>
+    <span class="l3">Keep going.</span>
+  </p>
+</main>
+<script>
+const pen = document.getElementById('pen');
+const msg = document.getElementById('msg');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const C = [200, 170];
+
+// The flower from the sketch: eight long petals meeting in one point, then a wavy stem.
+function flower() {
+  const pts = [];
+  // [direction, length, width, bend]: uneven on purpose, so it looks drawn by hand.
+  const petals = [[-95, 125, 34, 10], [-50, 110, 42, -8], [-5, 108, 36, 12], [40, 98, 44, -10],
+                  [85, 70, 30, 6], [130, 96, 38, -12], [178, 114, 40, 8], [-140, 120, 36, -8]];
+  for (const [deg, L, W, bend] of petals) {
+    const a = deg * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), n = 70;
+    for (let i = 0; i < n; i++) {
+      const p = 2 * Math.PI * i / n, u = L / 2 * (1 - Math.cos(p));
+      const v = W / 2 * Math.sin(p) * (0.6 + 0.4 * Math.sin(p / 2)) + bend * (u / L) ** 2;
+      pts.push([C[0] + dx * u - dy * v, C[1] + dy * u + dx * v]);
+    }
+  }
+  const stem = document.getElementById('stem'), len = stem.getTotalLength(), n = 220;
+  for (let i = 0; i <= n; i++) { const q = stem.getPointAtLength(len * i / n); pts.push([q.x, q.y]); }
+  return pts;
+}
+
+// A new messy ball every time: overlapping loops at random speeds, scaled by `size`.
+function tangle(n) {
+  const r = Math.random;
+  const waves = Array.from({ length: 5 }, (_, k) => ({ ax: 18 + r() * 60 / (k + 1), ay: 18 + r() * 60 / (k + 1),
+    fx: 2 + r() * 9 * (k + 1), fy: 2 + r() * 9 * (k + 1), px: r() * 6.3, py: r() * 6.3 }));
+  return Array.from({ length: n }, (_, i) => {
+    const t = i / n; let x = 0, y = 0;
+    for (const w of waves) { x += w.ax * Math.sin(w.fx * t * 6.283 + w.px); y += w.ay * Math.cos(w.fy * t * 6.283 + w.py); }
+    return [x, y];
+  });
+}
+
+const toPath = pts => 'M' + pts.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L');
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const clamp = t => Math.max(0, Math.min(1, t));
+
+const target = flower();
+const mess = tangle(target.length);
+const ball = (size, spin) => mess.map(([x, y]) => {
+  const c = Math.cos(spin), s = Math.sin(spin);
+  return [C[0] + 40 + (x * c - y * s) * size, C[1] + 60 + (x * s + y * c) * size];
+});
+
+if (reduce) {
+  pen.setAttribute('d', toPath(target));
+  msg.classList.add('on');
+} else {
+  const DRAW = 1800, GROW = 1900, HOLD = 300, BLOOM = 3600;
+  const SMALL = 0.32, BIG = 1.05;
+  pen.setAttribute('d', toPath(ball(SMALL, 0)));
+  const len = pen.getTotalLength();
+  pen.style.strokeDasharray = len; pen.style.strokeDashoffset = len;
+  const start = performance.now(), n = target.length;
+  function frame(now) {
+    const t = now - start;
+    if (t < DRAW) {
+      // 1. The pen scribbles a tight little ball.
+      pen.style.strokeDashoffset = len * (1 - ease(t / DRAW));
+    } else if (t < DRAW + GROW) {
+      // 2. The ball loosens and grows into a big tangle.
+      pen.style.strokeDasharray = 'none';
+      const g = ease((t - DRAW) / GROW);
+      pen.setAttribute('d', toPath(ball(SMALL + (BIG - SMALL) * g, g * 0.9)));
+    } else {
+      // 3. The tangle untangles into the flower, petals first and the stem last.
+      const from = ball(BIG, 0.9);
+      const m = (t - DRAW - GROW - HOLD) / BLOOM;
+      const pts = target.map((p, i) => {
+        const k = ease(clamp((m - 0.4 * i / n) / 0.6));
+        return [from[i][0] + (p[0] - from[i][0]) * k, from[i][1] + (p[1] - from[i][1]) * k];
+      });
+      pen.setAttribute('d', toPath(pts));
+      if (m >= 1) { msg.classList.add('on'); return; }
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
